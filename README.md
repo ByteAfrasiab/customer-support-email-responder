@@ -1,7 +1,3 @@
-could you please humanize this , so that it seems to be 100% written by a human not an AI.
-
-
-
 # AI Customer Support Email Responder
 
 An n8n workflow that automatically handles incoming customer-support emails, checks whether an email is actually a support request, uses an AI agent to prepare a response, retrieves relevant information from a knowledge base, and replies to the customer.
