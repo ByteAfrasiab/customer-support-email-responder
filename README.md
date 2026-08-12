@@ -5,7 +5,7 @@ An n8n workflow that automatically handles incoming customer-support emails, che
 The goal is to reduce repetitive support work while keeping responses grounded in the store's policies and FAQ information.
 
 
-
+![AI Customer Support Email Responder](screenshots/workflow.png)
 ---
 
 ## What it does
