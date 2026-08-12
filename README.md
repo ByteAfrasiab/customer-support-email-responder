@@ -1,219 +1,167 @@
 # AI Customer Support Email Responder
 
-An n8n workflow that automatically handles incoming customer-support emails, checks whether an email is actually a support request, uses an AI agent to prepare a response, retrieves relevant information from a knowledge base, and replies to the customer.
+An n8n workflow that reads incoming Gmail messages, figures out which ones are customer-support requests, and uses an AI agent to draft and send a reply.
 
-The goal is to reduce repetitive support work while keeping responses grounded in the store's policies and FAQ information.
+The agent can also search a Pinecone knowledge base for relevant FAQs and policies before answering, so the response is based on the information provided to it rather than just the model's general knowledge.
 
 ![AI Customer Support Email Responder](screenshots/workflow.png)
 
 ---
 
-## What it does
+## How it works
 
-The workflow follows this process:
+The workflow is basically:
 
-```text
-Incoming Gmail message
-        ↓
-Classify the email
-        ↓
-Customer Support?
-     ↙        ↘
-   Yes         No
-    ↓           ↓
- AI Agent     Stop
-    ↓
-Retrieve information
-from knowledge base
-    ↓
-Generate response
-    ↓
-Reply to customer
-```
+New Gmail message
+       ↓
+Email classification
+       ↓
+Is it a support request?
+    ↙             ↘
+  Yes              No
+   ↓                ↓
+AI Support Agent   Stop
+   ↓
+Search knowledge base
+   ↓
+Generate reply
+   ↓
+Reply to the customer
+Email trigger
 
-### 1. Monitor Gmail
+The workflow starts with a Gmail trigger that checks for new messages. In the current setup, it checks for new emails every minute.
 
-The workflow starts with a Gmail trigger that checks for incoming emails. The current workflow is configured to poll for new messages every minute.
+Email classification
 
-### 2. Classify the email
+Before sending an email to the AI agent, the workflow first checks what kind of message it is.
 
-An AI text classifier determines whether the incoming message is:
+The classifier uses two categories:
 
-- **Customer Support**
-- **Other**
+Customer Support
+Other
 
-This prevents unrelated emails from being sent through the customer-support response process.
+Support-related questions include things such as products, orders, shipping, returns, refunds, complaints, technical problems, policies, and FAQs.
 
-The classifier is instructed to treat questions about products, services, orders, shipping, returns, refunds, complaints, technical issues, policies, and FAQs as customer-support messages.
+Messages that don't need a support response are simply stopped here.
 
-### 3. Process support requests with an AI agent
+AI customer-support agent
 
-When an email is classified as customer support, it is passed to an AI agent.
+If the message is classified as customer support, it is passed to the AI agent.
 
-The agent receives the original email and is instructed to respond as a customer-support representative.
+The agent receives the customer's email and prepares a response based on the available instructions and information from the knowledge base.
 
-### 4. Retrieve information from the knowledge base
+Knowledge base
 
-The AI agent has access to a Pinecone vector store as a knowledge-base tool.
+The agent is connected to a Pinecone vector store containing FAQ and policy information.
 
-The vector store contains the information the agent can use to answer questions about policies and FAQs.
+When it needs information to answer a question, it can search the knowledge base and use the relevant results while preparing the response.
 
-This gives the agent a source of information to consult instead of relying only on the language model's general knowledge.
+This is useful for questions where the answer needs to match a specific policy or piece of company information.
 
-### 5. Generate the response
+Sending the reply
 
-The AI agent uses the incoming email together with information retrieved from the knowledge base to generate the response.
+Once the response has been generated, the workflow sends it back to the customer through Gmail as a reply to the original message.
 
-### 6. Reply through Gmail
+Workflow components
 
-Finally, the generated response is sent as a reply to the original Gmail message.
+This workflow uses:
 
----
+n8n for the automation
+Gmail for receiving and sending emails
+OpenAI for the language model and embeddings
+Pinecone for the vector knowledge base
+AI Agent for generating the support response
+Text Classifier for deciding which emails should be processed
+Why the classifier is useful
 
-## Workflow architecture
+There is no reason to send every email through the AI support agent.
 
-The main components are:
+For example, an unrelated email can be stopped before the AI agent is called:
 
-- **Gmail Trigger** — receives incoming emails
-- **Text Classifier** — determines whether the email requires customer support
-- **OpenAI Chat Model** — powers the AI processing
-- **AI Agent** — generates the customer-support response
-- **Pinecone Vector Store** — provides FAQ and policy information
-- **OpenAI Embeddings** — connects the AI system to the vector store
-- **Gmail** — sends the final response
+New email
+   ↓
+Classify
+   ↓
+Support request?
+   ├── Yes → AI Agent → Reply
+   └── No  → Stop
 
----
+This keeps the workflow focused on the messages it is actually designed to handle.
 
-## Why use a classifier first?
+Why Pinecone is used
 
-Not every incoming email needs an AI-generated customer-support response.
+A support agent shouldn't have to rely entirely on the language model's built-in knowledge when answering questions about a specific business.
 
-The classifier creates a decision point before the more expensive processing happens:
+The Pinecone vector store gives the agent a separate knowledge base containing the information it should use, such as FAQs and policies.
 
-```text
-Incoming email
-      ↓
-Is it customer support?
-   ↙           ↘
- Yes            No
-  ↓              ↓
-AI response     Stop
-```
+This also makes the workflow easier to adapt: you can replace the knowledge base with your own information without changing the overall structure of the automation.
 
-This makes the automation more controlled and avoids processing unrelated messages unnecessarily.
+Requirements
 
----
+To run the workflow, you'll need:
 
-## Why use a vector database?
+An n8n instance
+A Gmail account connected to n8n
+An OpenAI API connection
+A Pinecone account and index
+A knowledge base containing the FAQs, policies, or other information you want the agent to use
+Importing the workflow
+Download workflow.json from this repository.
+Open your n8n instance.
+Import the workflow JSON.
+Connect your Gmail credentials.
+Connect your OpenAI credentials.
+Connect your Pinecone credentials.
+Set your Pinecone index and namespace.
+Add or connect your own FAQ and policy data to the knowledge base.
+Send a test email and check the generated reply.
 
-A customer-support agent should not invent company policies or FAQ answers.
+The workflow in this repository is a sanitized public copy, so you'll need to connect your own credentials after importing it.
 
-Using a vector database allows the workflow to retrieve relevant information from a dedicated knowledge base and provide that information to the AI agent when generating a response.
+Things you may want to change
 
-In this workflow, Pinecone is used as the retrieval layer.
+Depending on how you want to use it, you can modify:
 
----
+The email classification rules
+The AI agent's instructions
+The contents of the knowledge base
+The Pinecone index and namespace
+The Gmail account
+The tone and style of the replies
 
-## Technologies
+The idea is to provide a working starting point that can be adapted to different customer-support use cases.
 
-- **n8n** — workflow automation
-- **Gmail** — email trigger and replies
-- **OpenAI** — language model and embeddings
-- **Pinecone** — vector database / knowledge base
+Example
 
----
+Suppose a customer sends:
 
-## Requirements
-
-Before importing the workflow, you will need:
-
-- An n8n instance
-- A Gmail account that can be connected to n8n
-- An OpenAI API connection
-- A Pinecone account and index
-- A knowledge base containing your own FAQ and policy information
-
----
-
-## Importing the workflow
-
-1. Download `workflow.json`.
-2. Open your n8n instance.
-3. Import the JSON workflow.
-4. Connect your own Gmail credentials.
-5. Connect your own OpenAI credentials.
-6. Connect your own Pinecone credentials.
-7. Configure your Pinecone index and namespace.
-8. Make sure your knowledge base contains the FAQ and policy information you want the AI agent to use.
-9. Send a test customer-support email and check the generated reply.
-
----
-
-## Configuration
-
-The public workflow is a sanitized copy.
-
-It does **not** contain my private API keys, OAuth credentials, account-specific credential IDs, or n8n instance information.
-
-You will need to connect your own credentials after importing the workflow.
-
-You may also want to change:
-
-- The customer-support classification rules
-- The AI agent's system prompt
-- The knowledge-base content
-- The Pinecone index and namespace
-- The email account
-- The tone and format of generated responses
-
-The workflow is intended as a reusable starting point rather than a plug-and-play service tied to one specific business.
-
----
-
-## Example
-
-A customer might send an email asking:
-
-```text
 What is your return policy?
-```
 
-The workflow can:
+The workflow would:
 
-1. Receive the email through Gmail.
-2. Classify it as customer support.
-3. Pass it to the AI agent.
-4. Search the knowledge base for the relevant return-policy information.
-5. Generate a response using that information.
-6. Reply to the original email.
+Receive the email through Gmail.
+Classify it as a customer-support request.
+Pass it to the AI agent.
+Search the knowledge base for the relevant return-policy information.
+Use that information to prepare the response.
+Reply to the customer through Gmail.
 
-The same structure can be adapted for questions about shipping, refunds, orders, product information, and other common support topics.
+The same setup can be adapted for questions about shipping, refunds, orders, products, and other common support requests.
 
----
-
-## Repository structure
-
-```text
+Repository structure
 ai-customer-support-email-responder/
-│
 ├── README.md
 ├── workflow.json
 └── screenshots/
     └── workflow.png
-```
+A note before using it in production
 
----
+This workflow is mainly intended as a learning and portfolio project.
 
-## Important note
+If you use it for real customer emails, test it properly first. Make sure the information in the knowledge base is accurate and that the agent's instructions are appropriate for the type of support you want it to provide.
 
-This workflow is designed for demonstration and learning purposes.
+An AI-generated response can still be wrong, even when the workflow uses a knowledge base. The quality of the answers depends heavily on the information you provide and how the agent is instructed.
 
-Before using it for real customer communication, test the responses carefully and make sure the knowledge base contains accurate and up-to-date information.
+License
 
-AI-generated responses should not be treated as automatically correct simply because they were retrieved from a knowledge-base workflow. The quality of the final response depends on the quality of the information stored in the knowledge base and the instructions given to the AI agent.
-
----
-
-## License
-
-This project is released under the MIT License.
+MIT
